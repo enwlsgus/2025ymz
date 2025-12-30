@@ -1660,32 +1660,31 @@
             const qIndex = gameState.currentQuestion;
             const quiz = quizzes[qIndex];
             const correctAnswer = quiz.answer;
-            
+        
             const answersSnapshot = await database.ref(`answers/q${qIndex}`).once('value');
             const answers = answersSnapshot.val() || {};
-            
+        
             const updates = {};
-            
+            const inc = firebase.database.ServerValue.increment;
+        
             for (const [pid, answerData] of Object.entries(answers)) {
-                if (answerData.answer === correctAnswer) {
-                    const responseTime = answerData.responseTime || gameState.timeLimit;
-                    const timeBonus = Math.max(0, Math.floor((gameState.timeLimit - responseTime) * 10));
-                    const points = 100 + timeBonus;
-                    
-                    // 플레이어 점수 업데이트
-                    const playerSnapshot = await database.ref(`players/${pid}`).once('value');
-                    const playerData = playerSnapshot.val() || {};
-                    
-                    updates[`players/${pid}/score`] = (playerData.score || 0) + points;
-                    updates[`players/${pid}/correctCount`] = (playerData.correctCount || 0) + 1;
-                    updates[`players/${pid}/totalTime`] = (playerData.totalTime || 0) + responseTime;
-                }
+              if (answerData && answerData.answer === correctAnswer) {
+                const responseTime = answerData.responseTime ?? gameState.timeLimit;
+                const timeBonus = Math.max(0, Math.floor((gameState.timeLimit - responseTime) * 10));
+                const points = 100 + timeBonus;
+        
+                updates[`players/${pid}/score`] = inc(points);
+                updates[`players/${pid}/correctCount`] = inc(1);
+                updates[`players/${pid}/totalTime`] = inc(responseTime);
+              }
             }
-            
+        
             if (Object.keys(updates).length > 0) {
-                await database.ref().update(updates);
+              await database.ref().update(updates);
             }
-        }
+          }
+
+        
         
         // 퀴즈 종료
         async function adminEndGame() {
@@ -1822,4 +1821,5 @@
     </script>
 </body>
 </html>
+
 
